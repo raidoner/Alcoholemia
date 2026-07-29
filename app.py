@@ -34,6 +34,44 @@ duracion = st.sidebar.slider("Duración del consumo (horas)", 1, 24, 10)
 tasa = st.sidebar.number_input("Tasa de ingesta (g/hora)", min_value=0.5, max_value=100.0, value=15.0, step=0.5)
 tiempo_sim = st.sidebar.slider("Horas totales a simular", 5, 48, 10)
 
+# --- SECCIÓN: CONSULTA EN UN import streamlit as st
+import numpy as np
+from scipy.integrate import solve_ivp
+import matplotlib.pyplot as plt
+
+st.set_page_config(page_title="Simulador de Alcoholemia", layout="centered")
+
+st.title("🍺 Simulador de Alcoholemia (BAC)")
+st.write("Calcula tu curva de alcohol en sangre con cinética de absorción y eliminación.")
+
+# --- BARRA LATERAL / CONTROLES ---
+st.sidebar.header("Parámetros del consumo")
+
+peso = st.sidebar.number_input("Peso (kg)", min_value=40, max_value=150, value=75)
+sexo = st.sidebar.radio("Sexo", ["Hombre", "Mujer"])
+r_widmark = 0.68 if sexo == "Hombre" else 0.55
+
+estomago = st.sidebar.selectbox(
+    "Estado del estómago (Absorción)",
+    ["En ayunas (Rápida)", "Comida ligera", "Cena normal", "Cena copiosa", "Fast food / Grasas (Lenta)"]
+)
+
+# Mapeo de ka y Biodisponibilidad (F) según la comida
+parametros_comida = {
+    "En ayunas (Rápida)": {"ka": 2.5, "F": 0.88},
+    "Comida ligera": {"ka": 1.5, "F": 0.80},
+    "Cena normal": {"ka": 0.9, "F": 0.72},
+    "Cena copiosa": {"ka": 0.6, "F": 0.65},
+    "Fast food / Grasas (Lenta)": {"ka": 0.4, "F": 0.60}
+}
+
+ka = parametros_comida[estomago]["ka"]
+F = parametros_comida[estomago]["F"]
+
+duracion = st.sidebar.slider("Duración del consumo (horas)", 1, 24, 10)
+tasa = st.sidebar.number_input("Tasa de ingesta (g/hora)", min_value=0.5, max_value=100.0, value=15.0, step=0.5)
+tiempo_sim = st.sidebar.slider("Horas totales a simular", 5, 48, 10)
+
 # --- SECCIÓN: CONSULTA EN UN INSTANTE PUNTUAL ---
 st.sidebar.markdown("---")
 st.sidebar.header("🔍 Consultar instante específico")
@@ -57,8 +95,8 @@ Acum0 = st.sidebar.number_input("Alcohol acumulado previo (g)", min_value=0.0, v
 
 # --- CÁLCULOS FARMACOCINÉTICOS ---
 Vd = peso * r_widmark
-Vmax = 0.18
-Km = 0.08
+Vmax = 0.18  # g/L/h
+Km = 0.08    # g/L
 
 def sistema_edo(t, y):
     A, C, Acum = y
@@ -66,13 +104,13 @@ def sistema_edo(t, y):
     C_pos = max(0.0, C)
     
     dA_dt = R_in - ka * A
-    dC_dt = (ka * A) / Vd - (Vmax * C_pos) / (Km + C_pos)
-    dAcum_dt = ka * A
+    # Se introduce el factor de biodisponibilidad F
+    dC_dt = (F * ka * A) / Vd - (Vmax * C_pos) / (Km + C_pos)
+    dAcum_dt = F * ka * A
     return [dA_dt, dC_dt, dAcum_dt]
 
 t_eval = np.linspace(0, tiempo_sim, 1000)
 
-# dense_output=True permite evaluar el sistema en cualquier punto continuo t
 sol = solve_ivp(
     sistema_edo, 
     [0, tiempo_sim], 
@@ -83,7 +121,7 @@ sol = solve_ivp(
 )
 
 t = sol.t
-BAC = sol.y[1]
+BAC = np.maximum(0.0, sol.y[1])  # Evitamos ruidos numéricos negativos
 Absorbido = sol.y[2]
 
 # Métricas principales
@@ -91,7 +129,8 @@ idx_max = np.argmax(BAC)
 Cmax = BAC[idx_max]
 Tmax = t[idx_max]
 
-indices_cero = np.where((t > Tmax) & (BAC <= 0.005))[0]
+# Búsqueda precisa del momento en que BAC vuelve a 0
+indices_cero = np.where((t > Tmax) & (BAC <= 0.001))[0]
 T_cero = t[indices_cero[0]] if len(indices_cero) > 0 else None
 
 # --- MOSTRAR RESULTADOS GENERALES ---
@@ -102,7 +141,7 @@ col3.metric("Alcohol a 0", f"{T_cero:.1f} h" if T_cero else "> simulación")
 
 # --- MOSTRAR CONSULTA ESPECÍFICA (SI ESTÁ ACTIVADA) ---
 if consultar_hora:
-    y_instante = sol.sol(t_consulta)  # Evalúa la EDO exactamente en t_consulta
+    y_instante = sol.sol(t_consulta)
     A_inst = max(0.0, y_instante[0])
     C_inst = max(0.0, y_instante[1])
     Acum_inst = max(0.0, y_instante[2])
@@ -127,7 +166,6 @@ ax1.plot(Tmax, Cmax, 'ro')
 if T_cero:
     ax1.plot(T_cero, 0, 'go')
 
-# Marcar instante consultado en la gráfica si aplica
 if consultar_hora:
     ax1.plot(t_consulta, C_inst, 'bo', markersize=8, label=f'Consulta ({t_consulta:.1f}h)')
 
@@ -137,8 +175,8 @@ ax1.set_ylim(0, max_ylim)
 ax1.grid(True)
 ax1.legend(loc='upper right')
 
-# Gráfica Wagner-Nelson
-total_ingerido = Acum0 + tasa * np.minimum(t, duracion)
+# Gráfica Wagner-Nelson (Corregida la suma de A0)
+total_ingerido = A0 + Acum0 + tasa * np.minimum(t, duracion)
 ax2.plot(t, total_ingerido, 'k--', label='Ingerido (g)')
 ax2.plot(t, Absorbido, 'b-', label='Absorbido (g)')
 
