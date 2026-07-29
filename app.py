@@ -30,9 +30,9 @@ ka_dict = {
 }
 ka = ka_dict[estomago]
 
-duracion = st.sidebar.slider("Duración del consumo (horas)", 1, 48, 10)
+duracion = st.sidebar.slider("Duración del consumo (horas)", 1, 30, 10)
 tasa = st.sidebar.number_input("Tasa de ingesta (g/hora)", min_value=0.5, max_value=50.0, value=15.0, step=0.5)
-tiempo_sim = st.sidebar.slider("Horas totales a simular", 10, 72, 30)
+tiempo_sim = st.sidebar.slider("Horas totales a simular", 10, 50, 30)
 
 # --- CÁLCULOS FARMACOCINÉTICOS ---
 Vd = peso * r_widmark
