@@ -58,11 +58,11 @@ estomago = st.sidebar.selectbox(
 
 # Mapeo de ka y Biodisponibilidad (F) según la comida
 parametros_comida = {
-    "En ayunas (Rápida)": {"ka": 2.5, "F": 0.88},
-    "Comida ligera": {"ka": 1.5, "F": 0.80},
-    "Cena normal": {"ka": 0.9, "F": 0.72},
-    "Cena copiosa": {"ka": 0.6, "F": 0.65},
-    "Fast food / Grasas (Lenta)": {"ka": 0.4, "F": 0.60}
+    "En ayunas (Rápida)": {"ka": 2.5, "F": 0.98},
+    "Comida ligera": {"ka": 1.5, "F": 0.90},
+    "Cena normal": {"ka": 0.9, "F": 0.82},
+    "Cena copiosa": {"ka": 0.6, "F": 0.75},
+    "Fast food / Grasas (Lenta)": {"ka": 0.4, "F": 0.70}
 }
 
 ka = parametros_comida[estomago]["ka"]
