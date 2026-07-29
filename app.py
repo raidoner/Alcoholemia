@@ -34,7 +34,7 @@ duracion = st.sidebar.slider("Duración del consumo (horas)", 1, 24, 10)
 tasa = st.sidebar.number_input("Tasa de ingesta (g/hora)", min_value=0.5, max_value=100.0, value=15.0, step=0.5)
 tiempo_sim = st.sidebar.slider("Horas totales a simular", 5, 48, 10)
 
-# --- NUEVA SECCIÓN: CONSULTA EN UN INSTANTE PUNTUAL ---
+# --- SECCIÓN: CONSULTA EN UN INSTANTE PUNTUAL ---
 st.sidebar.markdown("---")
 st.sidebar.header("🔍 Consultar instante específico")
 consultar_hora = st.sidebar.checkbox("Activar consulta de hora")
@@ -47,6 +47,13 @@ if consultar_hora:
         value=min(2.0, float(tiempo_sim)), 
         step=0.5
     )
+
+# --- SECCIÓN: CONDICIONES INICIALES (t=0) ---
+st.sidebar.markdown("---")
+st.sidebar.header("🚀 Condiciones Iniciales (t=0)")
+A0 = st.sidebar.number_input("Alcohol inicial en estómago (g)", min_value=0.0, value=0.0, step=1.0)
+C0 = st.sidebar.number_input("BAC inicial en sangre (g/L)", min_value=0.0, value=0.0, step=0.05)
+Acum0 = st.sidebar.number_input("Alcohol acumulado previo (g)", min_value=0.0, value=0.0, step=1.0)
 
 # --- CÁLCULOS FARMACOCINÉTICOS ---
 Vd = peso * r_widmark
@@ -69,7 +76,7 @@ t_eval = np.linspace(0, tiempo_sim, 1000)
 sol = solve_ivp(
     sistema_edo, 
     [0, tiempo_sim], 
-    [0, 0, 0], 
+    [A0, C0, Acum0], 
     t_eval=t_eval, 
     method='RK45', 
     dense_output=True
@@ -131,7 +138,7 @@ ax1.grid(True)
 ax1.legend(loc='upper right')
 
 # Gráfica Wagner-Nelson
-total_ingerido = tasa * np.minimum(t, duracion)
+total_ingerido = Acum0 + tasa * np.minimum(t, duracion)
 ax2.plot(t, total_ingerido, 'k--', label='Ingerido (g)')
 ax2.plot(t, Absorbido, 'b-', label='Absorbido (g)')
 
